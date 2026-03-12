@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Props {
   videoId: string
@@ -7,6 +7,14 @@ interface Props {
 
 export function QuizSetup({ videoId, onGenerate }: Props) {
   const [limit, setLimit] = useState(10)
+  const [title, setTitle] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
+      .then(r => r.json())
+      .then(d => setTitle(d.title))
+      .catch(() => setTitle(null))
+  }, [videoId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseInt(e.target.value, 10)
@@ -15,13 +23,12 @@ export function QuizSetup({ videoId, onGenerate }: Props) {
 
   return (
     <div className="p-4 flex flex-col gap-3">
-      <div className="flex items-center gap-2.5 bg-[#1c1c1c] border border-[#2e2e2e] rounded-lg px-3 py-2.5">
-        <span className="text-[11px] text-[#666] uppercase tracking-wide whitespace-nowrap">
-          Video ID
-        </span>
-        <span className="font-mono text-xs text-[#ccc] overflow-hidden text-ellipsis whitespace-nowrap">
-          {videoId}
-        </span>
+      <div className="bg-[#1c1c1c] border border-[#2e2e2e] rounded-lg px-3 py-2.5 flex flex-col gap-0.5">
+        <span className="text-[10px] text-[#555] uppercase tracking-wide">Now watching</span>
+        {title
+          ? <span className="text-sm text-[#f1f1f1] font-medium leading-snug">{title}</span>
+          : <span className="text-xs text-[#555] font-mono">{videoId}</span>
+        }
       </div>
 
       <div className="flex items-center justify-between bg-[#1c1c1c] border border-[#2e2e2e] rounded-lg px-3 py-2.5">
