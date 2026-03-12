@@ -54,18 +54,20 @@ function BackIcon() {
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
-function Header({ onSettings, onBack, isSettings }: { onSettings?: () => void; onBack?: () => void; isSettings?: boolean }) {
+function Header({ onBack, onSettings, label }: { onBack?: () => void; onSettings?: () => void; label?: string }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 bg-red-600 shrink-0">
-      {isSettings && (
-        <button onClick={onBack} className="text-white/80 hover:text-white cursor-pointer transition-colors mr-1">
+      {onBack && (
+        <button onClick={onBack} className="text-white/80 hover:text-white cursor-pointer transition-colors -ml-1 mr-0.5">
           <BackIcon />
         </button>
       )}
       <span className="text-base font-bold text-white tracking-tight">QuizTube</span>
-      {isSettings && <span className="text-[11px] text-white/70">Settings</span>}
-      {!isSettings && <span className="text-[11px] text-white/70 ml-auto">AI Quiz Generator</span>}
-      {onSettings && !isSettings && (
+      {label
+        ? <span className="text-[11px] text-white/70">{label}</span>
+        : <span className="text-[11px] text-white/70 ml-auto">AI Quiz Generator</span>
+      }
+      {onSettings && (
         <button onClick={onSettings} className="text-white/70 hover:text-white cursor-pointer transition-colors ml-auto">
           <GearIcon />
         </button>
@@ -74,16 +76,16 @@ function Header({ onSettings, onBack, isSettings }: { onSettings?: () => void; o
   )
 }
 
-function Layout({ children, center = false, onSettings, onBack, isSettings }: {
+function Layout({ children, center = false, onBack, onSettings, label }: {
   children: React.ReactNode
   center?: boolean
-  onSettings?: () => void
   onBack?: () => void
-  isSettings?: boolean
+  onSettings?: () => void
+  label?: string
 }) {
   return (
     <div className="bg-[#0f0f0f] h-full flex flex-col">
-      <Header onSettings={onSettings} onBack={onBack} isSettings={isSettings} />
+      <Header onBack={onBack} onSettings={onSettings} label={label} />
       <div className={`flex-1 min-h-0 overflow-y-auto${center ? ' flex flex-col items-center justify-center' : ''}`}>
         {children}
       </div>
@@ -242,9 +244,10 @@ export function Popup() {
 
   if (phase.type === 'settings') {
     const { videoId } = phase
+    const back = () => closeSettings(videoId)
     return (
-      <Layout isSettings onBack={() => closeSettings(videoId)}>
-        <Settings current={settings} onBack={() => closeSettings(videoId)} />
+      <Layout onBack={back} label="Settings">
+        <Settings current={settings} onBack={back} />
       </Layout>
     )
   }
@@ -269,8 +272,9 @@ export function Popup() {
   }
 
   if (phase.type === 'loading') {
+    const { videoId } = phase
     return (
-      <Layout center>
+      <Layout center onBack={() => handleNewQuiz(videoId)}>
         <div className="flex flex-col items-center gap-3 text-center">
           <Spinner />
           <p className="text-[#aaa] text-sm">Generating your quiz…</p>
@@ -283,7 +287,7 @@ export function Popup() {
   if (phase.type === 'error') {
     const { message, videoId } = phase
     return (
-      <Layout center onSettings={openSettings}>
+      <Layout center onBack={() => handleNewQuiz(videoId)} onSettings={openSettings}>
         <div className="flex flex-col items-center gap-3.5 px-5 text-center w-full">
           <div className="text-4xl">⚠️</div>
           <p className="text-red-300 text-sm leading-relaxed">{message}</p>
@@ -299,9 +303,9 @@ export function Popup() {
   }
 
   if (phase.type === 'quiz') {
-    const { questions, currentIndex } = phase
+    const { questions, currentIndex, videoId } = phase
     return (
-      <Layout>
+      <Layout onBack={() => handleNewQuiz(videoId)}>
         <QuizQuestion
           key={currentIndex}
           question={questions[currentIndex]}
@@ -317,7 +321,7 @@ export function Popup() {
 
   if (phase.type === 'results') {
     return (
-      <Layout onSettings={openSettings}>
+      <Layout onBack={() => handleNewQuiz(phase.videoId)} onSettings={openSettings}>
         <QuizResults
           questions={phase.questions}
           userAnswers={phase.userAnswers}
