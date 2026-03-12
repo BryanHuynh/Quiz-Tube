@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -7,6 +8,7 @@ import services.generate_questions_service as QuestionsService
 import services.quiz_service as QuizService
 from models.questions import Quiz
 from config import DEFAULT_QUIZ_LIMIT
+from db.setup import setup as db_setup
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,7 +16,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    logger.info("Running database setup...")
+    db_setup()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
