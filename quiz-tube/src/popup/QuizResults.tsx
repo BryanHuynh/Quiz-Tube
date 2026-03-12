@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Question } from '../types/quiz'
 
 interface Props {
@@ -23,6 +24,83 @@ function getRemark(pct: number): string {
   return '💪 Keep at it!'
 }
 
+interface ReviewRowProps {
+  question: Question
+  selected: Set<number>
+  index: number
+}
+
+function ReviewRow({ question, selected, index }: ReviewRowProps) {
+  const [open, setOpen] = useState(false)
+  const correct = isCorrect(question, selected)
+
+  const userChoices = question.choices.filter((_, i) => selected.has(i))
+  const correctChoices = question.choices.filter(c => c.correct)
+
+  return (
+    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg overflow-hidden">
+      {/* Header row */}
+      <button
+        className="flex items-center gap-2 w-full px-3 py-2.5 text-left cursor-pointer hover:bg-[#222] transition-colors duration-100"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="text-[13px] shrink-0">{correct ? '✅' : '❌'}</span>
+        <span className="text-xs text-[#bbb] flex-1 truncate">
+          {index + 1}. {question.title || question.question}
+        </span>
+        <span className="text-[#555] text-[10px] shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#2a2a2a]">
+          <p className="text-xs text-[#888] pt-2 leading-snug">{question.question}</p>
+
+          {/* User's answer */}
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[#555] mb-1">
+              Your answer
+            </div>
+            {userChoices.length === 0 ? (
+              <p className="text-xs text-[#555] italic">No answer selected</p>
+            ) : (
+              userChoices.map((c, i) => (
+                <div
+                  key={i}
+                  className={`text-xs px-2 py-1.5 rounded mb-1 ${
+                    c.correct
+                      ? 'bg-[#0c1f0d] text-green-300 border border-green-900'
+                      : 'bg-[#1f0c0c] text-red-300 border border-red-900'
+                  }`}
+                >
+                  {c.answer}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Correct answer — only shown if wrong */}
+          {!correct && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#555] mb-1">
+                Correct answer
+              </div>
+              {correctChoices.map((c, i) => (
+                <div key={i} className="text-xs px-2 py-1.5 rounded mb-1 bg-[#0c1f0d] text-green-300 border border-green-900">
+                  <div>{c.answer}</div>
+                  {c.feedback && (
+                    <div className="text-[11px] text-green-500 italic mt-0.5">{c.feedback}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function QuizResults({ questions, userAnswers, onRestart }: Props) {
   const score = questions.reduce(
     (acc, q, i) => acc + (isCorrect(q, userAnswers[i]) ? 1 : 0),
@@ -40,17 +118,12 @@ export function QuizResults({ questions, userAnswers, onRestart }: Props) {
         <div className="text-sm text-[#888] mt-2.5">{getRemark(pct)}</div>
       </div>
 
-      <div className="flex flex-col gap-1.25">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#555] mb-1">
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#555] mb-0.5">
           Question Breakdown
         </div>
         {questions.map((q, i) => (
-          <div key={i} className="flex items-center gap-2 px-2.5 py-2 bg-[#1a1a1a] rounded-md">
-            <span className="text-[13px] shrink-0">
-              {isCorrect(q, userAnswers[i]) ? '✅' : '❌'}
-            </span>
-            <span className="text-xs text-[#bbb] truncate flex-1">{q.title || q.question}</span>
-          </div>
+          <ReviewRow key={i} question={q} selected={userAnswers[i]} index={i} />
         ))}
       </div>
 

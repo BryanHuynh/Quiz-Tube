@@ -86,6 +86,29 @@ function feedbackClasses(state: ChoiceState): string {
   }
 }
 
+function parseTimestamp(ts: string): number {
+  const parts = ts.split(':').map(Number)
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  return parseFloat(ts) || 0
+}
+
+function seekToTimestamp(ts: string) {
+  const seconds = parseTimestamp(ts)
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tabId = tabs[0]?.id
+    if (!tabId) return
+    chrome.scripting.executeScript({
+      target: { tabId },
+      func: (secs: number) => {
+        const video = document.querySelector('video')
+        if (video) video.currentTime = secs
+      },
+      args: [seconds],
+    })
+  })
+}
+
 function getIndicatorChar(state: ChoiceState, submitted: boolean, isSelected: boolean): string {
   if (!submitted) return isSelected ? '✓' : ''
   if (state === 'result-correct-hit' || state === 'result-correct-miss') return '✓'
@@ -157,7 +180,12 @@ export function QuizQuestion({
       <div>
         <p className="text-sm font-medium leading-relaxed text-[#f1f1f1]">{question.question}</p>
         {question.context_start && (
-          <p className="text-[11px] text-[#555] mt-1">@ {question.context_start}</p>
+          <button
+            className="text-[11px] text-[#555] mt-1 hover:text-red-500 transition-colors duration-150 cursor-pointer"
+            onClick={() => seekToTimestamp(question.context_start)}
+          >
+            ▶ {question.context_start}
+          </button>
         )}
       </div>
 
