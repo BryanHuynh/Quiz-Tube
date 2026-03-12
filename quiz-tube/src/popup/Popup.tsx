@@ -135,7 +135,18 @@ export function Popup() {
     }
   }
 
-  const handleRestart = (videoId: string) => {
+  const handleRetry = () => {
+    if (phase.type !== 'results') return
+    setPhase({
+      type: 'quiz',
+      videoId: phase.videoId,
+      questions: phase.questions,
+      currentIndex: 0,
+      userAnswers: phase.questions.map(() => new Set<number>()),
+    })
+  }
+
+  const handleNewQuiz = (videoId: string) => {
     setPhase({ type: 'setup', videoId })
   }
 
@@ -189,7 +200,7 @@ export function Popup() {
           <p className="text-red-300 text-sm leading-relaxed">{message}</p>
           <button
             className="bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-semibold w-full cursor-pointer transition-colors duration-150"
-            onClick={() => handleRestart(videoId)}
+            onClick={() => handleNewQuiz(videoId)}
           >
             Try Again
           </button>
@@ -220,7 +231,8 @@ export function Popup() {
         <QuizResults
           questions={phase.questions}
           userAnswers={phase.userAnswers}
-          onRestart={() => handleRestart(phase.videoId)}
+          onRetry={handleRetry}
+          onNewQuiz={() => handleNewQuiz(phase.videoId)}
         />
       </Layout>
     )

@@ -4,7 +4,8 @@ import type { Question } from '../types/quiz'
 interface Props {
   questions: Question[]
   userAnswers: Array<Set<number>>
-  onRestart: () => void
+  onRetry: () => void
+  onNewQuiz: () => void
 }
 
 function isCorrect(question: Question, selected: Set<number>): boolean {
@@ -101,7 +102,7 @@ function ReviewRow({ question, selected, index }: ReviewRowProps) {
   )
 }
 
-export function QuizResults({ questions, userAnswers, onRestart }: Props) {
+export function QuizResults({ questions, userAnswers, onRetry, onNewQuiz }: Props) {
   const score = questions.reduce(
     (acc, q, i) => acc + (isCorrect(q, userAnswers[i]) ? 1 : 0),
     0,
@@ -127,12 +128,20 @@ export function QuizResults({ questions, userAnswers, onRestart }: Props) {
         ))}
       </div>
 
-      <button
-        className="bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-semibold w-full cursor-pointer transition-colors duration-150"
-        onClick={onRestart}
-      >
-        Try Again
-      </button>
+      <div className="flex gap-2">
+        <button
+          className="bg-red-600 hover:bg-red-700 text-white rounded-lg py-2.5 text-sm font-semibold flex-1 cursor-pointer transition-colors duration-150"
+          onClick={onRetry}
+        >
+          Try Again
+        </button>
+        <button
+          className="bg-[#2a2a2a] hover:bg-[#333] text-[#bbb] rounded-lg py-2.5 text-sm font-semibold flex-1 cursor-pointer transition-colors duration-150"
+          onClick={onNewQuiz}
+        >
+          New Quiz
+        </button>
+      </div>
     </div>
   )
 }
