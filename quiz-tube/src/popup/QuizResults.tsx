@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Question } from '../types/quiz'
+import { seekToTimestamp } from '../utils/seekToTimestamp'
 
 interface Props {
   questions: Question[]
@@ -55,7 +56,17 @@ function ReviewRow({ question, selected, index }: ReviewRowProps) {
       {/* Dropdown */}
       {open && (
         <div className="px-3 pb-3 flex flex-col gap-2 border-t border-[#2a2a2a]">
-          <p className="text-xs text-[#888] pt-2 leading-snug">{question.question}</p>
+          <div className="flex items-start justify-between gap-2 pt-2">
+            <p className="text-xs text-[#888] leading-snug">{question.question}</p>
+            {question.context_start && (
+              <button
+                className="text-[10px] text-[#555] hover:text-red-500 transition-colors duration-150 cursor-pointer shrink-0"
+                onClick={() => seekToTimestamp(question.context_start)}
+              >
+                ▶ {question.context_start}
+              </button>
+            )}
+          </div>
 
           {/* User's answer */}
           <div>

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Question, Choice } from '../types/quiz'
+import { seekToTimestamp } from '../utils/seekToTimestamp'
 
 interface Props {
   question: Question
@@ -86,28 +87,6 @@ function feedbackClasses(state: ChoiceState): string {
   }
 }
 
-function parseTimestamp(ts: string): number {
-  const parts = ts.split(':').map(Number)
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
-  if (parts.length === 2) return parts[0] * 60 + parts[1]
-  return parseFloat(ts) || 0
-}
-
-function seekToTimestamp(ts: string) {
-  const seconds = parseTimestamp(ts)
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tabId = tabs[0]?.id
-    if (!tabId) return
-    chrome.scripting.executeScript({
-      target: { tabId },
-      func: (secs: number) => {
-        const video = document.querySelector('video')
-        if (video) video.currentTime = secs
-      },
-      args: [seconds],
-    })
-  })
-}
 
 function getIndicatorChar(state: ChoiceState, submitted: boolean, isSelected: boolean): string {
   if (!submitted) return isSelected ? '✓' : ''
@@ -126,11 +105,6 @@ export function QuizQuestion({
 }: Props) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => {
-    setSelected(new Set())
-    setSubmitted(false)
-  }, [questionNumber])
 
   const isMulti = question.question_style === 'SELECT MANY ANSWERS'
 

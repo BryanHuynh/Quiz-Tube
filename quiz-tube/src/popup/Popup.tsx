@@ -214,6 +214,7 @@ export function Popup() {
     return (
       <Layout>
         <QuizQuestion
+          key={currentIndex}
           question={questions[currentIndex]}
           questionNumber={currentIndex + 1}
           totalQuestions={questions.length}
