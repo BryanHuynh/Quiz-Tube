@@ -6,7 +6,7 @@ import { QuizResults } from './QuizResults'
 import { Settings } from './Settings'
 import { loadSettings, type LLMSettings } from '../utils/storage'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = 'https://quiz-tube-production.up.railway.app'
 
 type Phase =
   | { type: 'checking' }
