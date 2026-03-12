@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import confetti from 'canvas-confetti'
 import type { Question, Choice } from '../types/quiz'
 import { seekToTimestamp } from '../utils/seekToTimestamp'
 
@@ -126,6 +127,12 @@ export function QuizQuestion({
   const handleSubmit = () => {
     setSubmitted(true)
     onSubmit([...selected])
+
+    const correctIndices = new Set(question.choices.map((c, i) => c.correct ? i : -1).filter(i => i >= 0))
+    const isCorrect = correctIndices.size === selected.size && [...correctIndices].every(i => selected.has(i))
+    if (isCorrect) {
+      confetti({ particleCount: 80, spread: 65, origin: { x: 0.5, y: 0.4 }, colors: ['#ff0000', '#ff6b6b', '#ffffff', '#ffcc00'] })
+    }
   }
 
   const progress = (questionNumber / totalQuestions) * 100
