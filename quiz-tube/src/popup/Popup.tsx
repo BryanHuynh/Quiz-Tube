@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Question } from '../types/quiz'
 import { QuizSetup } from './QuizSetup'
 import { QuizQuestion } from './QuizQuestion'
@@ -18,6 +18,23 @@ type Phase =
   | { type: 'quiz'; videoId: string; questions: Question[]; currentIndex: number; userAnswers: Array<Set<number>> }
   | { type: 'results'; videoId: string; questions: Question[]; userAnswers: Array<Set<number>> }
 
+/** Phases worth persisting per-tab (transient phases are excluded) */
+function isSaveable(p: Phase): boolean {
+  return p.type === 'setup' || p.type === 'quiz' || p.type === 'results' || p.type === 'error' || p.type === 'not-youtube'
+}
+
+function detectVideoId(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (!parsed.hostname.includes('youtube.com')) return null
+    return parsed.searchParams.get('v')
+  } catch {
+    return null
+  }
+}
+
+// ── Icons ────────────────────────────────────────────────────────────────────
+
 function GearIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -35,19 +52,21 @@ function BackIcon() {
   )
 }
 
-function Header({ onSettingsClick, onBackClick, showBack }: { onSettingsClick?: () => void; onBackClick?: () => void; showBack?: boolean }) {
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+function Header({ onSettings, onBack, isSettings }: { onSettings?: () => void; onBack?: () => void; isSettings?: boolean }) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 bg-red-600 shrink-0">
-      {showBack && (
-        <button onClick={onBackClick} className="text-white/80 hover:text-white cursor-pointer transition-colors mr-1">
+      {isSettings && (
+        <button onClick={onBack} className="text-white/80 hover:text-white cursor-pointer transition-colors mr-1">
           <BackIcon />
         </button>
       )}
       <span className="text-base font-bold text-white tracking-tight">QuizTube</span>
-      {showBack && <span className="text-[11px] text-white/70">Settings</span>}
-      {!showBack && <span className="text-[11px] text-white/70 ml-auto">AI Quiz Generator</span>}
-      {onSettingsClick && !showBack && (
-        <button onClick={onSettingsClick} className="text-white/70 hover:text-white cursor-pointer transition-colors ml-auto">
+      {isSettings && <span className="text-[11px] text-white/70">Settings</span>}
+      {!isSettings && <span className="text-[11px] text-white/70 ml-auto">AI Quiz Generator</span>}
+      {onSettings && !isSettings && (
+        <button onClick={onSettings} className="text-white/70 hover:text-white cursor-pointer transition-colors ml-auto">
           <GearIcon />
         </button>
       )}
@@ -55,22 +74,16 @@ function Header({ onSettingsClick, onBackClick, showBack }: { onSettingsClick?: 
   )
 }
 
-function Spinner() {
-  return (
-    <div className="w-9 h-9 rounded-full border-[3px] border-[#2a2a2a] border-t-red-600 animate-spin" />
-  )
-}
-
-function Layout({ children, center = false, onSettings, onBack, showBack }: {
+function Layout({ children, center = false, onSettings, onBack, isSettings }: {
   children: React.ReactNode
   center?: boolean
   onSettings?: () => void
   onBack?: () => void
-  showBack?: boolean
+  isSettings?: boolean
 }) {
   return (
     <div className="bg-[#0f0f0f] h-full flex flex-col">
-      <Header onSettingsClick={onSettings} onBackClick={onBack} showBack={showBack} />
+      <Header onSettings={onSettings} onBack={onBack} isSettings={isSettings} />
       <div className={`flex-1 min-h-0 overflow-y-auto${center ? ' flex flex-col items-center justify-center' : ''}`}>
         {children}
       </div>
@@ -78,44 +91,79 @@ function Layout({ children, center = false, onSettings, onBack, showBack }: {
   )
 }
 
+function Spinner() {
+  return <div className="w-9 h-9 rounded-full border-[3px] border-[#2a2a2a] border-t-red-600 animate-spin" />
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
 export function Popup() {
-  const [phase, setPhase] = useState<Phase>({ type: 'checking' })
+  const [phase, setPhaseState] = useState<Phase>({ type: 'checking' })
   const [settings, setSettings] = useState<LLMSettings | null>(null)
 
-  // Load settings once on mount
+  // Refs for stale-closure-safe access inside event listeners
+  const phaseRef = useRef<Phase>(phase)
+  const currentTabIdRef = useRef<number | null>(null)
+  const tabSessionsRef = useRef<Map<number, Phase>>(new Map())
+
+  const setPhase = (p: Phase) => {
+    phaseRef.current = p
+    setPhaseState(p)
+  }
+
+  // Load settings on mount
   useEffect(() => {
     loadSettings().then(s => setSettings(s))
   }, [])
 
-  // Tab detection
+  // Tab session management
   useEffect(() => {
+    const resolvePhaseForTab = (tabId: number, url: string | undefined) => {
+      // Restore saved session if exists
+      if (tabSessionsRef.current.has(tabId)) {
+        return tabSessionsRef.current.get(tabId)!
+      }
+      // Otherwise derive from URL
+      if (!url) return { type: 'not-youtube' } as Phase
+      const videoId = detectVideoId(url)
+      if (!videoId) return { type: 'not-youtube' } as Phase
+      return { type: 'setup', videoId } as Phase
+    }
+
     const detectTab = () => {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const url = tabs[0]?.url
-        setPhase(prev => {
-          if (prev.type === 'loading' || prev.type === 'quiz' || prev.type === 'results') return prev
-          if (!url) return { type: 'not-youtube' }
-          try {
-            const parsed = new URL(url)
-            if (!parsed.hostname.includes('youtube.com')) return { type: 'not-youtube' }
-            const videoId = parsed.searchParams.get('v')
-            if (!videoId) return { type: 'not-youtube' }
-            if (prev.type === 'setup' && prev.videoId === videoId) return prev
-            return { type: 'setup', videoId }
-          } catch {
-            return { type: 'not-youtube' }
-          }
-        })
+        const tab = tabs[0]
+        const newTabId = tab?.id ?? null
+        setPhase(newTabId !== null
+          ? resolvePhaseForTab(newTabId, tab?.url)
+          : { type: 'not-youtube' }
+        )
+        currentTabIdRef.current = newTabId
       })
     }
 
-    detectTab()
-
-    const onActivated = () => detectTab()
-    const onUpdated = (_id: number, changeInfo: { url?: string; status?: string }) => {
-      if (changeInfo.url !== undefined || changeInfo.status === 'complete') detectTab()
+    const onActivated = (info: { tabId: number }) => {
+      // Save current tab's session before switching
+      const prevTabId = currentTabIdRef.current
+      if (prevTabId !== null && isSaveable(phaseRef.current)) {
+        tabSessionsRef.current.set(prevTabId, phaseRef.current)
+      }
+      currentTabIdRef.current = info.tabId
+      detectTab()
     }
 
+    const onUpdated = (tabId: number, changeInfo: { url?: string; status?: string }) => {
+      if (tabId !== currentTabIdRef.current) return
+      // URL changed within the same tab — clear its saved session and re-detect
+      if (changeInfo.url !== undefined) {
+        tabSessionsRef.current.delete(tabId)
+        detectTab()
+      } else if (changeInfo.status === 'complete') {
+        detectTab()
+      }
+    }
+
+    detectTab()
     chrome.tabs.onActivated.addListener(onActivated)
     chrome.tabs.onUpdated.addListener(onUpdated)
     return () => {
@@ -124,34 +172,32 @@ export function Popup() {
     }
   }, [])
 
+  // ── Actions ────────────────────────────────────────────────────────────────
+
   const openSettings = () => {
     const videoId = (phase as { videoId?: string }).videoId ?? null
     setPhase({ type: 'settings', videoId })
   }
 
   const closeSettings = (videoId: string | null) => {
-    // Reload settings then go back
     loadSettings().then(s => {
       setSettings(s)
-      if (videoId) setPhase({ type: 'setup', videoId })
-      else setPhase({ type: 'not-youtube' })
+      setPhase(videoId ? { type: 'setup', videoId } : { type: 'not-youtube' })
     })
   }
 
   const handleGenerate = async (videoId: string, limit: number) => {
     if (!settings) return
     setPhase({ type: 'loading', videoId })
+    // Clear any saved session for this tab — a fresh quiz supersedes it
+    if (currentTabIdRef.current !== null) {
+      tabSessionsRef.current.delete(currentTabIdRef.current)
+    }
     try {
       const res = await fetch(`${API_BASE}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          video_id: videoId,
-          limit,
-          provider: settings.provider,
-          model: settings.model,
-          api_key: settings.apiKey,
-        }),
+        body: JSON.stringify({ video_id: videoId, limit, provider: settings.provider, model: settings.model, api_key: settings.apiKey }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: 'Server error' })) as { detail?: string }
@@ -159,13 +205,7 @@ export function Popup() {
         return
       }
       const data = await res.json() as { questions: Question[] }
-      setPhase({
-        type: 'quiz',
-        videoId,
-        questions: data.questions,
-        currentIndex: 0,
-        userAnswers: data.questions.map(() => new Set<number>()),
-      })
+      setPhase({ type: 'quiz', videoId, questions: data.questions, currentIndex: 0, userAnswers: data.questions.map(() => new Set<number>()) })
     } catch {
       setPhase({ type: 'error', message: 'Cannot reach backend. Is it running on port 8000?', videoId })
     }
@@ -194,6 +234,8 @@ export function Popup() {
 
   const handleNewQuiz = (videoId: string) => setPhase({ type: 'setup', videoId })
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   if (phase.type === 'checking') {
     return <Layout center><Spinner /></Layout>
   }
@@ -201,7 +243,7 @@ export function Popup() {
   if (phase.type === 'settings') {
     const { videoId } = phase
     return (
-      <Layout showBack onBack={() => closeSettings(videoId)}>
+      <Layout isSettings onBack={() => closeSettings(videoId)}>
         <Settings current={settings} onBack={() => closeSettings(videoId)} />
       </Layout>
     )
