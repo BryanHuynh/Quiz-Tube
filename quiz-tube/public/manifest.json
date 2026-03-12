@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "QuizTube",
+  "version": "1.0.0",
+  "description": "Generate AI-powered quizzes from YouTube videos",
+  "permissions": ["activeTab", "sidePanel", "tabs"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "QuizTube"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
