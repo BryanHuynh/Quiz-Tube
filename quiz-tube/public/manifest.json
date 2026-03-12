@@ -3,7 +3,7 @@
   "name": "QuizTube",
   "version": "1.0.0",
   "description": "Generate AI-powered quizzes from YouTube videos",
-  "permissions": ["activeTab", "sidePanel", "tabs", "scripting"],
+  "permissions": ["activeTab", "sidePanel", "tabs", "scripting", "storage"],
   "host_permissions": ["https://www.youtube.com/*"],
   "side_panel": {
     "default_path": "sidepanel.html"
