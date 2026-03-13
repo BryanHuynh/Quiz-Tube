@@ -8,16 +8,20 @@ logger = logging.getLogger(__name__)
 
 
 def _build_api() -> YouTubeTranscriptApi:
-    proxy_username = PROXY_USERNAME
-    proxy_password = PROXY_PASSWORD
-    proxy_url = PROXY_URL
-
-    if proxy_username and proxy_password:
+    if PROXY_USERNAME and PROXY_PASSWORD:
         logger.info("Using Webshare proxy for YouTube transcript API")
         return YouTubeTranscriptApi(
             proxy_config=WebshareProxyConfig(
-                proxy_username=proxy_username,
-                proxy_password=proxy_password,
+                proxy_username=PROXY_USERNAME,
+                proxy_password=PROXY_PASSWORD,
+            )
+        )
+    if PROXY_URL:
+        logger.info("Using generic proxy for YouTube transcript API")
+        return YouTubeTranscriptApi(
+            proxy_config=GenericProxyConfig(
+                http_url=PROXY_URL,
+                https_url=PROXY_URL,
             )
         )
     logger.warning("No proxy configured")
